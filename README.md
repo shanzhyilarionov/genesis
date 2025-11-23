@@ -16,6 +16,8 @@ GENESIS is a computational artificial-life simulator where organisms evolve exec
 1. Clone or download the repository.
 2. Navigate to the project directory.
 3. Run the simulator:
-   python3 main.py
+```bash
+python3 main.py
+```
 
 *Full-screen terminal is recommended for proper display.*
