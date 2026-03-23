@@ -24,6 +24,7 @@ SPECIES_PARAMETERS = {
     SPECIES_A: {
         "name": "Species A",
         "symbol": "*",
+        "color": "\033[92m",
         "lifespan_min": 30,
         "lifespan_max": 80,
         "energy_min": 10,
@@ -39,6 +40,7 @@ SPECIES_PARAMETERS = {
     SPECIES_B: {
         "name": "Species B",
         "symbol": "@",
+        "color": "\033[91m",
         "lifespan_min": 40,
         "lifespan_max": 120,
         "energy_min": 20,
@@ -53,6 +55,7 @@ SPECIES_PARAMETERS = {
     },
 }
 
+RESET_COLOR = "\033[0m"
 MUTATION_PROBABILITY = 0.0004
 
 mutated_individuals_A = 0

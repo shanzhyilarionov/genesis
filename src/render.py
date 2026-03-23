@@ -42,7 +42,8 @@ def render(world, life_list, food_grid, current_tick: int) -> None:
     for organism in alive:
         params = config.SPECIES_PARAMETERS[organism.species_id]
         symbol = params["symbol"]
-        world[organism.y][organism.x] = symbol
+        color = params["color"]
+        world[organism.y][organism.x] = f"{color}{symbol}{config.RESET_COLOR}"
 
     trait_mutations_A = (
         config.lifespan_mutations_A

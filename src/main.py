@@ -1,6 +1,7 @@
 import random
 import time
 import math
+import shutil
 from collections import Counter
 
 import config
@@ -161,8 +162,7 @@ def _update_vm_stats() -> None:
         config.mean_exec_length_A = gene_vm.total_steps_A / gene_vm.active_count_A
     else:
         config.vm_idle_rate_A = 0.0
-        config.mean_exec_length_A = 0.0
-    
+        config.mean_exec_length_A = 0.0    
     if gene_vm.active_count_B > 0:
         config.vm_idle_rate_B = gene_vm.idle_count_B / gene_vm.active_count_B
         config.mean_exec_length_B = gene_vm.total_steps_B / gene_vm.active_count_B
@@ -187,15 +187,25 @@ def _update_vm_stats() -> None:
         config.dominant_opcode_B = 0
 
 def main() -> None:
-    world_buffer = [
-        [" " for _ in range(config.WORLD_WIDTH)]
-        for _ in range(config.WORLD_HEIGHT)
-    ]
+    time.sleep(0.1)
+
+    max_world_width = config.WORLD_WIDTH
+    max_world_height = config.WORLD_HEIGHT
+
     food_grid = create_initial_food_grid()
     life_list = []
     _spawn_initial_population(life_list)
 
     for tick in range(1, config.MAX_TICK_COUNT + 1):
+        cols, rows = shutil.get_terminal_size(fallback=(80, 24))
+        config.WORLD_WIDTH = max(1, min(max_world_width, cols - 27))
+        config.WORLD_HEIGHT = max(1, min(max_world_height, rows - 4))
+
+        world_buffer = [
+            [" " for _ in range(config.WORLD_WIDTH)]
+            for _ in range(config.WORLD_HEIGHT)
+        ]
+
         gene_vm.reset_vm_stats()
         living_count = len(life_list)
         pollution_increment = config.POLLUTION_INCREMENT_PER_LIFE * living_count
