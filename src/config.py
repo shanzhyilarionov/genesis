@@ -1,8 +1,8 @@
 PROGRAM_NAME = "Genesis"
 VERSION = "v0.1.0"
 
-WORLD_WIDTH = 77
-WORLD_HEIGHT = 39
+WORLD_WIDTH = 384
+WORLD_HEIGHT = 216
 
 MAX_FOOD_UNITS = 10
 FOOD_REGEN_PROBABILITY = 0.005
@@ -15,8 +15,8 @@ FOOD_TO_ENERGY_FACTOR = 2
 SPECIES_A = 1
 SPECIES_B = 2
 
-INITIAL_POPULATION_A = 5
-INITIAL_POPULATION_B = 2
+INITIAL_POPULATION_A = 20
+INITIAL_POPULATION_B = 10
 
 PREDATION_ENERGY_GAIN_B = 10
 
@@ -32,9 +32,9 @@ SPECIES_PARAMETERS = {
         "metabolism_min": 0.05,
         "metabolism_max": 0.15,
         "mobility_min": 0.6,
-        "mobility_max": 0.9,
+        "mobility_max": 0.8,
         "reproduction_threshold": 20,
-        "reproduction_cost": 6,
+        "reproduction_cost": 10,
         "reproduction_probability": 0.8,
     },
     SPECIES_B: {
@@ -45,13 +45,13 @@ SPECIES_PARAMETERS = {
         "lifespan_max": 120,
         "energy_min": 20,
         "energy_max": 30,
-        "metabolism_min": 0.25,
-        "metabolism_max": 0.5,
+        "metabolism_min": 0.1,
+        "metabolism_max": 0.2,
         "mobility_min": 0.85,
         "mobility_max": 0.95,
         "reproduction_threshold": 30,
-        "reproduction_cost": 20,
-        "reproduction_probability": 0.5,
+        "reproduction_cost": 15,
+        "reproduction_probability": 0.7,
     },
 }
 
@@ -110,5 +110,5 @@ dominant_opcode_B = 0
 mean_exec_length_A = 0.0
 mean_exec_length_B = 0.0
 
-TICK_DELAY_SECONDS = 0.25
-MAX_TICK_COUNT = 600
+TICK_DELAY_SECONDS = 0.12
+MAX_TICK_COUNT = 1000

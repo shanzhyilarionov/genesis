@@ -97,14 +97,14 @@ def _move_towards_prey(life: Life, life_list) -> None:
     step_x = 0
     step_y = 0
     if dx > 0:
-        step_x = 1
+        step_x = 2
     elif dx < 0:
-        step_x = -1
+        step_x = -2
 
     if dy > 0:
-        step_y = 1
+        step_y = 2
     elif dy < 0:
-        step_y = -1
+        step_y = -2
 
     nx = max(0, min(config.WORLD_WIDTH - 1, life.x + step_x))
     ny = max(0, min(config.WORLD_HEIGHT - 1, life.y + step_y))
@@ -139,7 +139,7 @@ def _sense_prey(life: Life, life_list) -> int:
     if life.species_id != config.SPECIES_B:
         return 0
     
-    vision_range = 5
+    vision_range = 100
 
     for other in life_list:
         if other.is_dead():
