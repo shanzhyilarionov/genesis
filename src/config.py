@@ -1,6 +1,3 @@
-PROGRAM_NAME = "Genesis"
-VERSION = "v0.1.0"
-
 WORLD_WIDTH = 384
 WORLD_HEIGHT = 216
 
@@ -23,8 +20,6 @@ PREDATION_ENERGY_GAIN_B = 10
 SPECIES_PARAMETERS = {
     SPECIES_A: {
         "name": "Species A",
-        "symbol": "*",
-        "color": "\033[92m",
         "lifespan_min": 30,
         "lifespan_max": 80,
         "energy_min": 10,
@@ -39,23 +34,20 @@ SPECIES_PARAMETERS = {
     },
     SPECIES_B: {
         "name": "Species B",
-        "symbol": "@",
-        "color": "\033[91m",
         "lifespan_min": 40,
         "lifespan_max": 120,
         "energy_min": 20,
         "energy_max": 30,
         "metabolism_min": 0.1,
         "metabolism_max": 0.2,
-        "mobility_min": 0.85,
-        "mobility_max": 0.95,
+        "mobility_min": 0.7,
+        "mobility_max": 0.9,
         "reproduction_threshold": 30,
         "reproduction_cost": 15,
-        "reproduction_probability": 0.7,
+        "reproduction_probability": 0.6,
     },
 }
 
-RESET_COLOR = "\033[0m"
 MUTATION_PROBABILITY = 0.0004
 
 mutated_individuals_A = 0

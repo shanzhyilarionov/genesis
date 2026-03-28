@@ -1,4 +1,3 @@
-import config
 from genome import init_random_genome
 
 class Life:

@@ -57,11 +57,12 @@ const ctx = canvas.getContext("2d", { alpha: false });
 const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 const COLORS = {
-  backgroundLight: "#ffffff",
+  backgroundLight: "#FFFFFF",
   backgroundDark: "#000000",
-  food: "#808080",
-  speciesA: "#33cc66",
-  speciesB: "#ff4d4d"
+  foodLight: "#DDDDDD",
+  foodDark: "#333333",
+  speciesA: "#00FF00",
+  speciesB: "#FF0000"
 };
 
 function resizeCanvas() {
@@ -76,6 +77,10 @@ function resizeCanvas() {
 
 function getBackgroundColor() {
   return themeQuery.matches ? COLORS.backgroundDark : COLORS.backgroundLight;
+}
+
+function getFoodColor() {
+  return themeQuery.matches ? COLORS.foodDark : COLORS.foodLight;
 }
 
 function drawFrame(frame) {
@@ -102,7 +107,7 @@ function drawFrame(frame) {
       if (value === 0) continue;
 
       if (value === 1) {
-        ctx.fillStyle = COLORS.food;
+        ctx.fillStyle = getFoodColor();
       } else if (value === 2) {
         ctx.fillStyle = COLORS.speciesA;
       } else if (value === 3) {

@@ -38,6 +38,138 @@ idle_count_B = 0
 total_steps_A = 0
 total_steps_B = 0
 
+class SpatialIndex:
+    def __init__(self, life_list, bucket_size=16):
+        self.bucket_size = bucket_size
+        self.by_cell = {}
+        self.prey_buckets = {}
+
+        for organism in life_list:
+            if organism.is_dead():
+                continue
+            self.add(organism)
+
+    def _cell_key(self, x, y):
+        return (x, y)
+
+    def _bucket_key(self, x, y):
+        return (x // self.bucket_size, y // self.bucket_size)
+
+    def add(self, organism):
+        if organism.is_dead():
+            return
+
+        cell_key = self._cell_key(organism.x, organism.y)
+        self.by_cell.setdefault(cell_key, []).append(organism)
+
+        if organism.species_id == config.SPECIES_A:
+            bucket_key = self._bucket_key(organism.x, organism.y)
+            self.prey_buckets.setdefault(bucket_key, []).append(organism)
+
+    def remove(self, organism):
+        cell_key = self._cell_key(organism.x, organism.y)
+        occupants = self.by_cell.get(cell_key)
+        if occupants is not None:
+            if organism in occupants:
+                occupants.remove(organism)
+            if not occupants:
+                del self.by_cell[cell_key]
+
+        if organism.species_id == config.SPECIES_A:
+            bucket_key = self._bucket_key(organism.x, organism.y)
+            prey_list = self.prey_buckets.get(bucket_key)
+            if prey_list is not None:
+                if organism in prey_list:
+                    prey_list.remove(organism)
+                if not prey_list:
+                    del self.prey_buckets[bucket_key]
+
+    def move(self, organism, old_x, old_y, new_x, new_y):
+        if old_x == new_x and old_y == new_y:
+            return
+
+        old_cell_key = self._cell_key(old_x, old_y)
+        new_cell_key = self._cell_key(new_x, new_y)
+
+        occupants = self.by_cell.get(old_cell_key)
+        if occupants is not None:
+            if organism in occupants:
+                occupants.remove(organism)
+            if not occupants:
+                del self.by_cell[old_cell_key]
+
+        self.by_cell.setdefault(new_cell_key, []).append(organism)
+
+        if organism.species_id == config.SPECIES_A:
+            old_bucket_key = self._bucket_key(old_x, old_y)
+            new_bucket_key = self._bucket_key(new_x, new_y)
+
+            if old_bucket_key != new_bucket_key:
+                prey_list = self.prey_buckets.get(old_bucket_key)
+                if prey_list is not None:
+                    if organism in prey_list:
+                        prey_list.remove(organism)
+                    if not prey_list:
+                        del self.prey_buckets[old_bucket_key]
+
+                self.prey_buckets.setdefault(new_bucket_key, []).append(organism)
+
+    def alive_same_cell_count(self, x, y):
+        count = 0
+        for organism in self.by_cell.get((x, y), []):
+            if not organism.is_dead():
+                count += 1
+        return count
+
+    def prey_exists_in_range(self, x, y, vision_range):
+        bx0 = max(0, (x - vision_range) // self.bucket_size)
+        bx1 = (x + vision_range) // self.bucket_size
+        by0 = max(0, (y - vision_range) // self.bucket_size)
+        by1 = (y + vision_range) // self.bucket_size
+
+        for by in range(by0, by1 + 1):
+            for bx in range(bx0, bx1 + 1):
+                for prey in self.prey_buckets.get((bx, by), []):
+                    if prey.is_dead():
+                        continue
+                    dx = prey.x - x
+                    dy = prey.y - y
+                    if abs(dx) <= vision_range and abs(dy) <= vision_range:
+                        return True
+        return False
+
+    def nearest_prey_direction(self, x, y, vision_range):
+        best_dist = None
+        best_dx = 0.0
+        best_dy = 0.0
+
+        x0 = max(0, x - vision_range)
+        x1 = min(config.WORLD_WIDTH - 1, x + vision_range)
+        y0 = max(0, y - vision_range)
+        y1 = min(config.WORLD_HEIGHT - 1, y + vision_range)
+
+        for ny in range(y0, y1 + 1):
+            for nx in range(x0, x1 + 1):
+                for organism in self.by_cell.get((nx, ny), []):
+                    if organism.is_dead():
+                        continue
+                    if organism.species_id != config.SPECIES_A:
+                        continue
+
+                    dx = organism.x - x
+                    dy = organism.y - y
+                    dist = abs(dx) + abs(dy)
+
+                    if best_dist is None or dist < best_dist:
+                        best_dist = dist
+                        best_dx = float(dx)
+                        best_dy = float(dy)
+
+        if best_dist is None:
+            return 0.0, 0.0
+
+        return best_dx, best_dy
+
 def reset_vm_stats() -> None:
     global active_count_A, active_count_B, idle_count_A, idle_count_B, total_steps_A, total_steps_B
 
@@ -52,20 +184,22 @@ def reset_vm_stats() -> None:
     total_steps_A = 0
     total_steps_B = 0
 
-def _move_random(life: Life) -> None:
+def _move_random(life: Life, spatial: SpatialIndex) -> None:
     dx, dy = random.choice([
         (1, 0), (-1, 0),
         (0, 1), (0, -1),
         (0, 0),
     ])
+    old_x, old_y = life.x, life.y
     nx = max(0, min(config.WORLD_WIDTH - 1, life.x + dx))
     ny = max(0, min(config.WORLD_HEIGHT - 1, life.y + dy))
     life.x, life.y = nx, ny
+    spatial.move(life, old_x, old_y, nx, ny)
 
-def _move_to_food(life: Life, food_grid) -> None:
+def _move_to_food(life: Life, food_grid, spatial: SpatialIndex) -> None:
     if life.species_id != config.SPECIES_A:
         return
-    
+
     vision_range = 2
     best_score = -1e9
     best_positions = []
@@ -83,12 +217,15 @@ def _move_to_food(life: Life, food_grid) -> None:
                 best_positions.append((nx, ny))
 
     if best_positions:
-        life.x, life.y = random.choice(best_positions)
+        old_x, old_y = life.x, life.y
+        nx, ny = random.choice(best_positions)
+        life.x, life.y = nx, ny
+        spatial.move(life, old_x, old_y, nx, ny)
 
-def _move_towards_prey(life: Life, life_list) -> None:
+def _move_towards_prey(life: Life, spatial: SpatialIndex) -> None:
     if life.species_id != config.SPECIES_B:
         return
-    
+
     dx = life.registers[0]
     dy = life.registers[1]
     if dx == 0 and dy == 0:
@@ -106,9 +243,11 @@ def _move_towards_prey(life: Life, life_list) -> None:
     elif dy < 0:
         step_y = -2
 
+    old_x, old_y = life.x, life.y
     nx = max(0, min(config.WORLD_WIDTH - 1, life.x + step_x))
     ny = max(0, min(config.WORLD_HEIGHT - 1, life.y + step_y))
     life.x, life.y = nx, ny
+    spatial.move(life, old_x, old_y, nx, ny)
 
 def _eat_plant(life: Life, food_grid) -> None:
     if life.species_id != config.SPECIES_A:
@@ -127,62 +266,24 @@ def _sense_food(life: Life, food_grid) -> int:
         return 0
     return 1 if food_grid[life.y][life.x] > 0 else 0
 
-def _sense_neighbor(life: Life, life_list) -> int:
-    for other in life_list:
-        if other is life:
-            continue
-        if not other.is_dead() and other.x == life.x and other.y == life.y:
-            return 1
-    return 0
+def _sense_neighbor(life: Life, spatial: SpatialIndex) -> int:
+    return 1 if spatial.alive_same_cell_count(life.x, life.y) > 1 else 0
 
-def _sense_prey(life: Life, life_list) -> int:
+def _sense_prey(life: Life, spatial: SpatialIndex) -> int:
     if life.species_id != config.SPECIES_B:
         return 0
-    
+
     vision_range = 100
+    return 1 if spatial.prey_exists_in_range(life.x, life.y, vision_range) else 0
 
-    for other in life_list:
-        if other.is_dead():
-            continue
-        if other.species_id != config.SPECIES_A:
-            continue
-
-        dx = other.x - life.x
-        dy = other.y - life.y
-        if abs(dx) <= vision_range and abs(dy) <= vision_range:
-            return 1
-    return 0
-
-def _sense_prey_direction(life: Life, life_list) -> tuple[float, float]:
+def _sense_prey_direction(life: Life, spatial: SpatialIndex) -> tuple[float, float]:
     if life.species_id != config.SPECIES_B:
         return 0.0, 0.0
-    
+
     vision_range = 5
-    best_dist = None
-    best_dx = 0.0
-    best_dy = 0.0
+    return spatial.nearest_prey_direction(life.x, life.y, vision_range)
 
-    for other in life_list:
-        if other.is_dead():
-            continue
-        if other.species_id != config.SPECIES_A:
-            continue
-
-        dx = other.x - life.x
-        dy = other.y - life.y
-        if abs(dx) <= vision_range and abs(dy) <= vision_range:
-            dist = abs(dx) + abs(dy)
-
-            if best_dist is None or dist < best_dist:
-                best_dist = dist
-                best_dx = float(dx)
-                best_dy = float(dy)
-
-    if best_dist is None:
-        return 0.0, 0.0
-    return best_dx, best_dy
-
-def _try_reproduce(life: Life, offspring_list: list[Life]) -> None:
+def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex) -> None:
     params = config.SPECIES_PARAMETERS[life.species_id]
     threshold = params["reproduction_threshold"]
     cost = params["reproduction_cost"]
@@ -299,8 +400,9 @@ def _try_reproduce(life: Life, offspring_list: list[Life]) -> None:
     child.registers = [0.0, 0.0, 0.0, 0.0]
     child.memory = [0.0] * len(life.memory)
     offspring_list.append(child)
+    spatial.add(child)
 
-def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5) -> None:
+def execute(life: Life, food_grid, spatial, offspring_list, max_steps: int = 5) -> None:
     if life.is_dead():
         return
     
@@ -314,11 +416,13 @@ def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5
     life.age_ticks += 1
     life.energy -= life.metabolism_rate
     if life.is_dead():
+        spatial.remove(life)
         return
     
     if random.random() < 0.002 * config.global_pollution_level:
         life.energy = 0.0
         life.died_from_pollution = True
+        spatial.remove(life)
         return
     
     if random.random() >= life.mobility_probability:
@@ -354,11 +458,11 @@ def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5
             life.ip = (ip + 1) % n
 
         elif opcode == MOVE_RANDOM:
-            _move_random(life)
+            _move_random(life, spatial)
             life.ip = (ip + 1) % n
 
         elif opcode == MOVE_TO_FOOD:
-            _move_to_food(life, food_grid)
+            _move_to_food(life, food_grid, spatial)
             life.ip = (ip + 1) % n
         
         elif opcode == EAT_PLANT:
@@ -366,11 +470,11 @@ def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5
             life.ip = (ip + 1) % n
         
         elif opcode == MOVE_TOWARDS_PREY:
-            _move_towards_prey(life, life_list)
+            _move_towards_prey(life, spatial)
             life.ip = (ip + 1) % n
         
         elif opcode == REPRODUCE_OP:
-            _try_reproduce(life, offspring_list)
+            _try_reproduce(life, offspring_list, spatial)
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_FOOD:
@@ -383,7 +487,7 @@ def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_NEIGHBOR:
-            life.registers[2] = float(_sense_neighbor(life, life_list))
+            life.registers[2] = float(_sense_neighbor(life, spatial))
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_RANDOM:
@@ -391,11 +495,11 @@ def execute(life: Life, food_grid, life_list, offspring_list, max_steps: int = 5
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_PREY:
-            life.registers[0] = float(_sense_prey(life, life_list))
+            life.registers[0] = float(_sense_prey(life, spatial))
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_PREY_DIRECTION:
-            dx, dy = _sense_prey_direction(life, life_list)
+            dx, dy = _sense_prey_direction(life, spatial)
             life.registers[0] = dx
             life.registers[1] = dy
             life.ip = (ip + 1) % n

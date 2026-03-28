@@ -198,8 +198,6 @@ def _update_vm_stats() -> None:
 
 
 def main() -> None:
-    time.sleep(0.1)
-
     food_grid = create_initial_food_grid()
     life_list = []
     _spawn_initial_population(life_list)
@@ -212,8 +210,6 @@ def main() -> None:
     start_web_server()
     open_browser()
 
-    print("Genesis web view started.")
-
     for tick in range(1, config.MAX_TICK_COUNT + 1):
         gene_vm.reset_vm_stats()
 
@@ -225,9 +221,10 @@ def main() -> None:
         )
 
         new_offspring = []
+        spatial = gene_vm.SpatialIndex(life_list)
 
         for organism in life_list:
-            gene_vm.execute(organism, food_grid, life_list, new_offspring)
+            gene_vm.execute(organism, food_grid, spatial, new_offspring)
 
         life_list.extend(new_offspring)
         _apply_predation(life_list)
