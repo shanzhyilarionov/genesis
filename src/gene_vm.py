@@ -222,32 +222,101 @@ def _move_to_food(life: Life, food_grid, spatial: SpatialIndex) -> None:
         life.x, life.y = nx, ny
         spatial.move(life, old_x, old_y, nx, ny)
 
-def _move_towards_prey(life: Life, spatial: SpatialIndex) -> None:
+def _predator_candidate_moves():
+    return [(1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)]
+
+
+def _bounded_step(x: int, y: int, dx: int, dy: int) -> tuple[int, int]:
+    nx = max(0, min(config.WORLD_WIDTH - 1, x + dx))
+    ny = max(0, min(config.WORLD_HEIGHT - 1, y + dy))
+    return nx, ny
+
+
+def _local_prey_score(spatial: SpatialIndex, x: int, y: int) -> float:
+    vision_range = config.PREDATOR_SEARCH_RADIUS
+
+    x0 = max(0, x - vision_range)
+    x1 = min(config.WORLD_WIDTH - 1, x + vision_range)
+    y0 = max(0, y - vision_range)
+    y1 = min(config.WORLD_HEIGHT - 1, y + vision_range)
+
+    best_score = 0.0
+
+    for ny in range(y0, y1 + 1):
+        for nx in range(x0, x1 + 1):
+            for organism in spatial.by_cell.get((nx, ny), []):
+                if organism.is_dead():
+                    continue
+                if organism.species_id != config.SPECIES_A:
+                    continue
+
+                dist = abs(organism.x - x) + abs(organism.y - y)
+
+                if dist == 0:
+                    return 100.0
+
+                score = config.PREDATOR_PREY_WEIGHT / (dist + 1.0)
+                if score > best_score:
+                    best_score = score
+
+    return best_score
+
+
+def _score_predator_cell(life: Life, spatial: SpatialIndex, trace_grid, nx: int, ny: int) -> float:
+    score = _local_prey_score(spatial, nx, ny)
+
+    score += trace_grid[ny][nx] * config.PREDATOR_TRACE_BONUS
+
+    if (nx, ny) == (life.last_x, life.last_y):
+        score -= config.PREDATOR_REVISIT_PENALTY
+
+    score += random.uniform(
+        -config.PREDATOR_RANDOM_NOISE,
+        config.PREDATOR_RANDOM_NOISE,
+    )
+
+    return score
+
+def _move_towards_prey(life: Life, spatial: SpatialIndex, trace_grid) -> None:
     if life.species_id != config.SPECIES_B:
         return
 
-    dx = life.registers[0]
-    dy = life.registers[1]
+    dx = int(round(life.registers[0]))
+    dy = int(round(life.registers[1]))
+
+    if dx == 0 and dy == 0 and life.current_search_score >= 50.0:
+        trace_grid[life.y][life.x] += config.PREDATOR_TRACE_DEPOSIT
+        life.last_search_score = life.current_search_score
+        return
+
+    if life.current_search_score > life.last_search_score:
+        life.run_ticks_left = min(life.run_ticks_left + config.PREDATOR_RUN_BONUS, 4)
+    else:
+        life.run_ticks_left = max(0, life.run_ticks_left - 1)
+
+        if random.random() < config.PREDATOR_TUMBLE_PROB:
+            dx, dy = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
+
     if dx == 0 and dy == 0:
-        dx, dy = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)])
+        dx, dy = life.heading_dx, life.heading_dy
 
-    step_x = 0
-    step_y = 0
-    if dx > 0:
-        step_x = 2
-    elif dx < 0:
-        step_x = -2
-
-    if dy > 0:
-        step_y = 2
-    elif dy < 0:
-        step_y = -2
+    if dx == 0 and dy == 0:
+        dx, dy = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
 
     old_x, old_y = life.x, life.y
-    nx = max(0, min(config.WORLD_WIDTH - 1, life.x + step_x))
-    ny = max(0, min(config.WORLD_HEIGHT - 1, life.y + step_y))
+    life.last_x, life.last_y = old_x, old_y
+
+    nx, ny = _bounded_step(life.x, life.y, dx, dy)
+
     life.x, life.y = nx, ny
+    life.heading_dx, life.heading_dy = dx, dy
+
     spatial.move(life, old_x, old_y, nx, ny)
+
+    if life.current_search_score > life.last_search_score:
+        trace_grid[ny][nx] += config.PREDATOR_TRACE_DEPOSIT
+
+    life.last_search_score = life.current_search_score
 
 def _eat_plant(life: Life, food_grid) -> None:
     if life.species_id != config.SPECIES_A:
@@ -276,12 +345,34 @@ def _sense_prey(life: Life, spatial: SpatialIndex) -> int:
     vision_range = 100
     return 1 if spatial.prey_exists_in_range(life.x, life.y, vision_range) else 0
 
-def _sense_prey_direction(life: Life, spatial: SpatialIndex) -> tuple[float, float]:
+def _sense_prey_direction(life: Life, spatial: SpatialIndex, trace_grid) -> tuple[float, float]:
     if life.species_id != config.SPECIES_B:
         return 0.0, 0.0
 
-    vision_range = 5
-    return spatial.nearest_prey_direction(life.x, life.y, vision_range)
+    best_score = -1e18
+    best_dirs = []
+
+    for dx, dy in _predator_candidate_moves():
+        nx, ny = _bounded_step(life.x, life.y, dx, dy)
+        score = _score_predator_cell(life, spatial, trace_grid, nx, ny)
+
+        if (
+            dx == life.heading_dx
+            and dy == life.heading_dy
+            and life.run_ticks_left > 0
+        ):
+            score += config.PREDATOR_HEADING_BONUS
+
+        if score > best_score:
+            best_score = score
+            best_dirs = [(dx, dy)]
+        elif score == best_score:
+            best_dirs.append((dx, dy))
+
+    chosen_dx, chosen_dy = random.choice(best_dirs)
+    life.current_search_score = best_score
+
+    return float(chosen_dx), float(chosen_dy)
 
 def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex) -> None:
     params = config.SPECIES_PARAMETERS[life.species_id]
@@ -402,7 +493,7 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
     offspring_list.append(child)
     spatial.add(child)
 
-def execute(life: Life, food_grid, spatial, offspring_list, max_steps: int = 5) -> None:
+def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_steps: int = 5) -> None:
     if life.is_dead():
         return
     
@@ -470,7 +561,7 @@ def execute(life: Life, food_grid, spatial, offspring_list, max_steps: int = 5) 
             life.ip = (ip + 1) % n
         
         elif opcode == MOVE_TOWARDS_PREY:
-            _move_towards_prey(life, spatial)
+            _move_towards_prey(life, spatial, trace_grid)
             life.ip = (ip + 1) % n
         
         elif opcode == REPRODUCE_OP:
@@ -499,7 +590,7 @@ def execute(life: Life, food_grid, spatial, offspring_list, max_steps: int = 5) 
             life.ip = (ip + 1) % n
         
         elif opcode == SENSE_PREY_DIRECTION:
-            dx, dy = _sense_prey_direction(life, spatial)
+            dx, dy = _sense_prey_direction(life, spatial, trace_grid)
             life.registers[0] = dx
             life.registers[1] = dy
             life.ip = (ip + 1) % n

@@ -5,7 +5,12 @@ from collections import Counter
 
 import config
 from life import Life
-from world import create_initial_food_grid, regenerate_food
+from world import (
+    create_initial_food_grid,
+    regenerate_food,
+    create_trace_grid,
+    decay_trace_grid,
+)
 import gene_vm
 from gene_vm import (
     MOVE_RANDOM,
@@ -199,6 +204,7 @@ def _update_vm_stats() -> None:
 
 def main() -> None:
     food_grid = create_initial_food_grid()
+    trace_grid = create_trace_grid()
     life_list = []
     _spawn_initial_population(life_list)
 
@@ -220,11 +226,12 @@ def main() -> None:
             config.POLLUTION_CAP,
         )
 
+        decay_trace_grid(trace_grid)
         new_offspring = []
         spatial = gene_vm.SpatialIndex(life_list)
 
         for organism in life_list:
-            gene_vm.execute(organism, food_grid, spatial, new_offspring)
+            gene_vm.execute(organism, food_grid, spatial, trace_grid, new_offspring)
 
         life_list.extend(new_offspring)
         _apply_predation(life_list)

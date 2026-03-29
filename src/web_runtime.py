@@ -152,6 +152,10 @@ loop();
 class ReusableTCPServer(TCPServer):
     allow_reuse_address = True
 
+class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
 def _get_root_dir():
     return os.path.dirname(os.path.dirname(__file__))
 
@@ -192,7 +196,7 @@ def start_web_server():
     web_dir = os.path.join(root_dir, "web")
     _port = _find_free_port()
 
-    handler = partial(SimpleHTTPRequestHandler, directory=web_dir)
+    handler = partial(QuietHTTPRequestHandler, directory=web_dir)
 
     def serve():
         with ReusableTCPServer(("127.0.0.1", _port), handler) as httpd:

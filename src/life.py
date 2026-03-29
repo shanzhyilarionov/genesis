@@ -33,5 +33,13 @@ class Life:
         self.registers: list[float] = [0.0, 0.0, 0.0, 0.0]
         self.memory: list[float] = [0.0] * 16
 
+        self.heading_dx: int = 0
+        self.heading_dy: int = 0
+        self.last_search_score: float = 0.0
+        self.current_search_score: float = 0.0
+        self.run_ticks_left: int = 0
+        self.last_x: int = x
+        self.last_y: int = y
+
     def is_dead(self) -> bool:
         return self.energy <= 0.0 or self.age_ticks > self.lifespan_ticks
