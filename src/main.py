@@ -1,18 +1,21 @@
+import sys
+sys.dont_write_bytecode = True
+
 import random
 import time
 import math
 from collections import Counter
 
 import config
-from life import Life
-from world import (
+from core.life import Life
+from core.world import (
     create_initial_food_grid,
     regenerate_food,
     create_trace_grid,
     decay_trace_grid,
 )
-import gene_vm
-from gene_vm import (
+import genetics.gene_vm as gene_vm
+from genetics.gene_vm import (
     MOVE_RANDOM,
     EAT_PLANT,
     MOVE_TOWARDS_PREY,
@@ -21,8 +24,8 @@ from gene_vm import (
     SENSE_PREY_DIRECTION,
     JUMP,
 )
-from web_state import build_web_frame, write_web_state
-from web_runtime import ensure_web_assets, start_web_server, open_browser
+from ui.state import build_web_frame, write_web_state
+from ui.runtime import ensure_web_assets, start_web_server, open_browser
 
 
 def make_initial_genome_A(length: int = 32) -> list[int]:

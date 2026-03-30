@@ -1,7 +1,7 @@
 import random
 import config
-from genome import mutate_genome, MAX_OPCODE
-from life import Life
+from genetics.genome import mutate_genome, MAX_OPCODE
+from core.life import Life
 
 NOP = 0
 MOVE_RANDOM = 1

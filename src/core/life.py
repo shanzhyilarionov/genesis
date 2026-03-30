@@ -1,4 +1,4 @@
-from genome import init_random_genome
+from genetics.genome import init_random_genome
 
 class Life:
     _id_counter = 0
