@@ -1,6 +1,6 @@
 import random
 import config
-from genetics.genome import mutate_genome, MAX_OPCODE
+from genetics.genome import mutate_genome
 from core.life import Life
 
 NOP = 0
@@ -26,17 +26,6 @@ STORE_R0 = 24
 JUMP = 30
 JUMP_IF_R0_ZERO = 31
 JUMP_IF_R0_NZ = 32
-
-MAX_OPCODE_VALUE = MAX_OPCODE
-
-opcode_counts_A = [0] * (MAX_OPCODE_VALUE + 1)
-opcode_counts_B = [0] * (MAX_OPCODE_VALUE + 1)
-active_count_A = 0
-active_count_B = 0
-idle_count_A = 0
-idle_count_B = 0
-total_steps_A = 0
-total_steps_B = 0
 
 class SpatialIndex:
     def __init__(self, life_list, bucket_size=16):
@@ -137,52 +126,6 @@ class SpatialIndex:
                     if abs(dx) <= vision_range and abs(dy) <= vision_range:
                         return True
         return False
-
-    def nearest_prey_direction(self, x, y, vision_range):
-        best_dist = None
-        best_dx = 0.0
-        best_dy = 0.0
-
-        x0 = max(0, x - vision_range)
-        x1 = min(config.WORLD_WIDTH - 1, x + vision_range)
-        y0 = max(0, y - vision_range)
-        y1 = min(config.WORLD_HEIGHT - 1, y + vision_range)
-
-        for ny in range(y0, y1 + 1):
-            for nx in range(x0, x1 + 1):
-                for organism in self.by_cell.get((nx, ny), []):
-                    if organism.is_dead():
-                        continue
-                    if organism.species_id != config.SPECIES_A:
-                        continue
-
-                    dx = organism.x - x
-                    dy = organism.y - y
-                    dist = abs(dx) + abs(dy)
-
-                    if best_dist is None or dist < best_dist:
-                        best_dist = dist
-                        best_dx = float(dx)
-                        best_dy = float(dy)
-
-        if best_dist is None:
-            return 0.0, 0.0
-
-        return best_dx, best_dy
-
-def reset_vm_stats() -> None:
-    global active_count_A, active_count_B, idle_count_A, idle_count_B, total_steps_A, total_steps_B
-
-    for i in range(MAX_OPCODE_VALUE + 1):
-        opcode_counts_A[i] = 0
-        opcode_counts_B[i] = 0
-
-    active_count_A = 0
-    active_count_B = 0
-    idle_count_A = 0
-    idle_count_B = 0
-    total_steps_A = 0
-    total_steps_B = 0
 
 def _move_random(life: Life, spatial: SpatialIndex) -> None:
     dx, dy = random.choice([
@@ -396,7 +339,6 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
     ])
     child_x = max(0, min(config.WORLD_WIDTH - 1, life.x + dx))
     child_y = max(0, min(config.WORLD_HEIGHT - 1, life.y + dy))
-    mutated_any_trait = False
     species_id = life.species_id
 
     if random.random() < config.MUTATION_PROBABILITY:
@@ -411,13 +353,6 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         min(max_life, life.lifespan_ticks + delta_lifespan),
     )
 
-    if delta_lifespan != 0:
-        mutated_any_trait = True
-        if species_id == config.SPECIES_A:
-            config.lifespan_mutations_A += 1
-        else:
-            config.lifespan_mutations_B += 1
-
     if random.random() < config.MUTATION_PROBABILITY:
         delta_metabolism = random.uniform(-0.1, 0.1)
     else:
@@ -429,13 +364,6 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         min_meta,
         min(max_meta, life.metabolism_rate + delta_metabolism),
     )
-
-    if abs(delta_metabolism) > 1e-6:
-        mutated_any_trait = True
-        if species_id == config.SPECIES_A:
-            config.metabolism_mutations_A += 1
-        else:
-            config.metabolism_mutations_B += 1
 
     if random.random() < config.MUTATION_PROBABILITY:
         delta_mobility = random.uniform(-0.05, 0.05)
@@ -449,32 +377,11 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         min(max_move, life.mobility_probability + delta_mobility),
     )
 
-    if abs(delta_mobility) > 1e-6:
-        mutated_any_trait = True
-        if species_id == config.SPECIES_A:
-            config.mobility_mutations_A += 1
-        else:
-            config.mobility_mutations_B += 1
-
-    if mutated_any_trait and not life.has_lineage_mutated:
-        if species_id == config.SPECIES_A:
-            config.mutated_individuals_A += 1
-        else:
-            config.mutated_individuals_B += 1
-        life.has_lineage_mutated = True
-
     child_energy = random.randint(
         params["energy_min"],
         params["energy_max"],
     )
     child_generation = life.generation_index + 1
-
-    if species_id == config.SPECIES_A:
-        if child_generation > config.max_generation_A:
-            config.max_generation_A = child_generation
-    else:
-        if child_generation > config.max_generation_B:
-            config.max_generation_B = child_generation
 
     child = Life(
         child_x,
@@ -496,13 +403,6 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
 def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_steps: int = 5) -> None:
     if life.is_dead():
         return
-    
-    species_id = life.species_id
-    global active_count_A, active_count_B, idle_count_A, idle_count_B, total_steps_A, total_steps_B
-    if species_id == config.SPECIES_A:
-        active_count_A += 1
-    elif species_id == config.SPECIES_B:
-        active_count_B += 1
 
     life.age_ticks += 1
     life.energy -= life.metabolism_rate
@@ -516,34 +416,13 @@ def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_step
         spatial.remove(life)
         return
     
-    if random.random() >= life.mobility_probability:
-        if species_id == config.SPECIES_A:
-            idle_count_A += 1
-        elif species_id == config.SPECIES_B:
-            idle_count_B += 1
-        return
-    
     genome = life.genome
     n = len(genome)
-    if n == 0:
-        if species_id == config.SPECIES_A:
-            idle_count_A += 1
-        elif species_id == config.SPECIES_B:
-            idle_count_B += 1
-        return
     
     steps = 0
     while steps < max_steps and not life.is_dead():
         ip = life.ip % n
         opcode = genome[ip]
-
-        if species_id == config.SPECIES_A:
-            if 0 <= opcode <= MAX_OPCODE_VALUE:
-                opcode_counts_A[opcode] += 1
-
-        elif species_id == config.SPECIES_B:
-            if 0 <= opcode <= MAX_OPCODE_VALUE:
-                opcode_counts_B[opcode] += 1
 
         if opcode == NOP:
             life.ip = (ip + 1) % n
@@ -638,13 +517,3 @@ def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_step
         else:
             life.ip = (ip + 1) % n
         steps += 1
-
-    if species_id == config.SPECIES_A:
-        total_steps_A += steps
-        if steps == 0:
-            idle_count_A += 1
-            
-    elif species_id == config.SPECIES_B:
-        total_steps_B += steps
-        if steps == 0:
-            idle_count_B += 1

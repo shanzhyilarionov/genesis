@@ -3,8 +3,6 @@ sys.dont_write_bytecode = True
 
 import random
 import time
-import math
-from collections import Counter
 
 import config
 from core.life import Life
@@ -85,7 +83,6 @@ def _spawn_initial_population(life_list) -> None:
         )
         organism.genome = make_initial_genome_A()
         life_list.append(organism)
-        config.total_spawned_A += 1
 
     params_B = config.SPECIES_PARAMETERS[config.SPECIES_B]
     for _ in range(config.INITIAL_POPULATION_B):
@@ -112,7 +109,6 @@ def _spawn_initial_population(life_list) -> None:
         )
         organism.genome = make_initial_genome_B()
         life_list.append(organism)
-        config.total_spawned_B += 1
 
 
 def _apply_predation(life_list) -> None:
@@ -144,67 +140,6 @@ def _apply_predation(life_list) -> None:
             predator.energy += config.PREDATION_ENERGY_GAIN_B
 
 
-def _update_genome_stats(life_list) -> None:
-    alive = [o for o in life_list if not o.is_dead()]
-    alive_A = [o for o in alive if o.species_id == config.SPECIES_A]
-    alive_B = [o for o in alive if o.species_id == config.SPECIES_B]
-
-    def _stats(group):
-        if not group:
-            return 0, 0.0
-
-        counter = Counter(tuple(o.genome) for o in group)
-        unique = len(counter)
-        total = len(group)
-        entropy = 0.0
-
-        for count in counter.values():
-            p = count / total
-            entropy -= p * math.log(p, 2)
-
-        return unique, entropy
-
-    uA, eA = _stats(alive_A)
-    uB, eB = _stats(alive_B)
-
-    config.unique_genomes_A = uA
-    config.genome_diversity_A = eA
-    config.unique_genomes_B = uB
-    config.genome_diversity_B = eB
-
-
-def _update_vm_stats() -> None:
-    if gene_vm.active_count_A > 0:
-        config.vm_idle_rate_A = gene_vm.idle_count_A / gene_vm.active_count_A
-        config.mean_exec_length_A = gene_vm.total_steps_A / gene_vm.active_count_A
-    else:
-        config.vm_idle_rate_A = 0.0
-        config.mean_exec_length_A = 0.0
-
-    if gene_vm.active_count_B > 0:
-        config.vm_idle_rate_B = gene_vm.idle_count_B / gene_vm.active_count_B
-        config.mean_exec_length_B = gene_vm.total_steps_B / gene_vm.active_count_B
-    else:
-        config.vm_idle_rate_B = 0.0
-        config.mean_exec_length_B = 0.0
-
-    if any(gene_vm.opcode_counts_A):
-        config.dominant_opcode_A = max(
-            range(len(gene_vm.opcode_counts_A)),
-            key=lambda i: gene_vm.opcode_counts_A[i],
-        )
-    else:
-        config.dominant_opcode_A = 0
-
-    if any(gene_vm.opcode_counts_B):
-        config.dominant_opcode_B = max(
-            range(len(gene_vm.opcode_counts_B)),
-            key=lambda i: gene_vm.opcode_counts_B[i],
-        )
-    else:
-        config.dominant_opcode_B = 0
-
-
 def main() -> None:
     food_grid = create_initial_food_grid()
     trace_grid = create_trace_grid()
@@ -220,7 +155,6 @@ def main() -> None:
     open_browser()
 
     for tick in range(1, config.MAX_TICK_COUNT + 1):
-        gene_vm.reset_vm_stats()
 
         living_count = len(life_list)
         pollution_increment = config.POLLUTION_INCREMENT_PER_LIFE * living_count
@@ -239,50 +173,9 @@ def main() -> None:
         life_list.extend(new_offspring)
         _apply_predation(life_list)
 
-        config.birth_A_tick = sum(
-            1 for o in new_offspring if o.species_id == config.SPECIES_A
-        )
-        config.birth_B_tick = sum(
-            1 for o in new_offspring if o.species_id == config.SPECIES_B
-        )
-
-        config.total_spawned_A += config.birth_A_tick
-        config.total_spawned_B += config.birth_B_tick
-
-        config.death_A_tick = 0
-        config.death_B_tick = 0
-
-        survivors = []
-        for organism in life_list:
-            if organism.is_dead():
-                if organism.species_id == config.SPECIES_A:
-                    config.death_A_tick += 1
-                    if organism.age_ticks > organism.lifespan_ticks:
-                        config.intrinsic_mortality_A += 1
-                    elif organism.died_from_pollution:
-                        config.pollution_mortality_A += 1
-                    elif organism.died_from_predation:
-                        config.predation_mortality_A += 1
-                    elif organism.energy <= 0.0:
-                        config.starvation_mortality_A += 1
-                else:
-                    config.death_B_tick += 1
-                    if organism.age_ticks > organism.lifespan_ticks:
-                        config.intrinsic_mortality_B += 1
-                    elif organism.died_from_pollution:
-                        config.pollution_mortality_B += 1
-                    elif organism.died_from_predation:
-                        config.predation_mortality_B += 1
-                    elif organism.energy <= 0.0:
-                        config.starvation_mortality_B += 1
-            else:
-                survivors.append(organism)
-
-        life_list = survivors
+        life_list = [organism for organism in life_list if not organism.is_dead()]
 
         regenerate_food(food_grid)
-        _update_genome_stats(life_list)
-        _update_vm_stats()
 
         frame = build_web_frame(life_list, food_grid, tick)
         write_web_state(frame)

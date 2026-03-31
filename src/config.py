@@ -50,59 +50,11 @@ SPECIES_PARAMETERS = {
 
 MUTATION_PROBABILITY = 0.0004
 
-mutated_individuals_A = 0
-mutated_individuals_B = 0
-
-lifespan_mutations_A = 0
-lifespan_mutations_B = 0
-
-metabolism_mutations_A = 0
-metabolism_mutations_B = 0
-
-mobility_mutations_A = 0
-mobility_mutations_B = 0
-
 POLLUTION_INCREMENT_PER_LIFE = 0.00001
 POLLUTION_CAP = 1.0
 global_pollution_level = 0.0
 
-total_spawned_A = 0
-total_spawned_B = 0
-
-peak_population_A = 0
-peak_population_B = 0
-
-max_generation_A = 0
-max_generation_B = 0
-
-birth_A_tick = 0
-birth_B_tick = 0
-death_A_tick = 0
-death_B_tick = 0
-
-intrinsic_mortality_A = 0
-starvation_mortality_A = 0
-pollution_mortality_A = 0
-predation_mortality_A = 0
-
-intrinsic_mortality_B = 0
-starvation_mortality_B = 0
-pollution_mortality_B = 0
-predation_mortality_B = 0
-
-unique_genomes_A = 0
-unique_genomes_B = 0
-genome_diversity_A = 0.0
-genome_diversity_B = 0.0
-
-vm_idle_rate_A = 0.0
-vm_idle_rate_B = 0.0
-dominant_opcode_A = 0
-dominant_opcode_B = 0
-mean_exec_length_A = 0.0
-mean_exec_length_B = 0.0
-
-TICK_DELAY_SECONDS = 0.12
+TICK_DELAY_SECONDS = 0.2
 MAX_TICK_COUNT = 1000
 
 PREDATOR_SEARCH_RADIUS = 20
