@@ -136,7 +136,6 @@ def _apply_predation(life_list) -> None:
             predator = predators[i]
             victim = prey[i]
             victim.energy = 0.0
-            victim.died_from_predation = True
             predator.energy += config.PREDATION_ENERGY_GAIN_B
 
 

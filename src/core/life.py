@@ -1,8 +1,6 @@
 from genetics.genome import init_random_genome
 
 class Life:
-    _id_counter = 0
-
     def __init__(
         self,
         x: int,
@@ -14,8 +12,6 @@ class Life:
         generation: int,
         species_id: int,
     ) -> None:
-        self.id = Life._id_counter
-        Life._id_counter += 1
         self.x = x
         self.y = y
         self.energy = float(energy)
@@ -25,9 +21,6 @@ class Life:
         self.mobility_probability = mobility
         self.generation_index = generation
         self.species_id = species_id
-        self.has_lineage_mutated = False
-        self.died_from_pollution = False
-        self.died_from_predation = False
         self.genome: list[int] = init_random_genome()
         self.ip: int = 0
         self.registers: list[float] = [0.0, 0.0, 0.0, 0.0]

@@ -25,8 +25,9 @@ INDEX_HTML = """<!DOCTYPE html>
 </html>
 """
 
-STYLE_CSS = """:root {
-  --bg: #ffffff;
+STYLE_CSS = """
+:root {
+  --bg: #FFFFFF;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,11 +49,17 @@ canvas {
   width: 100vw;
   height: 100vh;
   background: var(--bg);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 """
 
-APP_JS = """const canvas = document.getElementById("world");
+APP_JS = """
+const canvas = document.getElementById("world");
 const ctx = canvas.getContext("2d", { alpha: false });
+
+const worldCanvas = document.createElement("canvas");
+const worldCtx = worldCanvas.getContext("2d", { alpha: false });
 
 const themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -66,13 +73,13 @@ const COLORS = {
 };
 
 function resizeCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
   canvas.style.width = `${window.innerWidth}px`;
   canvas.style.height = `${window.innerHeight}px`;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
+  worldCtx.imageSmoothingEnabled = false;
 }
 
 function getBackgroundColor() {
@@ -87,19 +94,14 @@ function drawFrame(frame) {
   const viewWidth = window.innerWidth;
   const viewHeight = window.innerHeight;
 
-  ctx.fillStyle = getBackgroundColor();
-  ctx.fillRect(0, 0, viewWidth, viewHeight);
+  if (worldCanvas.width !== frame.width) worldCanvas.width = frame.width;
+  if (worldCanvas.height !== frame.height) worldCanvas.height = frame.height;
 
-  const cellSize = Math.max(
-    viewWidth / frame.width,
-    viewHeight / frame.height
-  );
+  worldCtx.imageSmoothingEnabled = false;
+  ctx.imageSmoothingEnabled = false;
 
-  const worldDrawWidth = frame.width * cellSize;
-  const worldDrawHeight = frame.height * cellSize;
-
-  const offsetX = (viewWidth - worldDrawWidth) / 2;
-  const offsetY = (viewHeight - worldDrawHeight) / 2;
+  worldCtx.fillStyle = getBackgroundColor();
+  worldCtx.fillRect(0, 0, frame.width, frame.height);
 
   for (let y = 0; y < frame.height; y++) {
     for (let x = 0; x < frame.width; x++) {
@@ -107,21 +109,38 @@ function drawFrame(frame) {
       if (value === 0) continue;
 
       if (value === 1) {
-        ctx.fillStyle = getFoodColor();
+        worldCtx.fillStyle = getFoodColor();
       } else if (value === 2) {
-        ctx.fillStyle = COLORS.speciesA;
+        worldCtx.fillStyle = COLORS.speciesA;
       } else if (value === 3) {
-        ctx.fillStyle = COLORS.speciesB;
+        worldCtx.fillStyle = COLORS.speciesB;
+      } else {
+        continue;
       }
 
-      ctx.fillRect(
-        offsetX + x * cellSize,
-        offsetY + y * cellSize,
-        cellSize,
-        cellSize
-      );
+      worldCtx.fillRect(x, y, 1, 1);
     }
   }
+
+  ctx.fillStyle = getBackgroundColor();
+  ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+  const scale = Math.max(
+    1,
+    Math.ceil(Math.max(viewWidth / frame.width, viewHeight / frame.height))
+  );
+
+  const drawWidth = frame.width * scale;
+  const drawHeight = frame.height * scale;
+
+  const offsetX = Math.floor((viewWidth - drawWidth) / 2);
+  const offsetY = Math.floor((viewHeight - drawHeight) / 2);
+
+  ctx.drawImage(
+    worldCanvas,
+    0, 0, frame.width, frame.height,
+    offsetX, offsetY, drawWidth, drawHeight
+  );
 }
 
 async function fetchState() {
@@ -141,7 +160,7 @@ async function loop() {
   if (frame) {
     drawFrame(frame);
   }
-  setTimeout(loop, 50);
+  setTimeout(loop, 200);
 }
 
 resizeCanvas();
@@ -177,14 +196,13 @@ def ensure_web_assets():
 
     for name, content in files.items():
         path = os.path.join(web_dir, name)
-        if not os.path.exists(path):
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(content)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
 
     state_path = os.path.join(web_dir, "state.json")
     if not os.path.exists(state_path):
         with open(state_path, "w", encoding="utf-8") as f:
-            f.write('{"tick":0,"width":1,"height":1,"cells":[[0]]}')
+            f.write('{"width":1,"height":1,"cells":[[0]]}')
 
 def start_web_server():
     global _server_started, _port

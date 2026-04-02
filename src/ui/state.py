@@ -31,7 +31,6 @@ def build_web_frame(life_list, food_grid, tick: int) -> dict:
                 cells[y][x] = SPECIES_B_VALUE
 
     return {
-        "tick": tick,
         "width": width,
         "height": height,
         "cells": cells

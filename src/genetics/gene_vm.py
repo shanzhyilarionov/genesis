@@ -412,7 +412,6 @@ def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_step
     
     if random.random() < 0.002 * config.global_pollution_level:
         life.energy = 0.0
-        life.died_from_pollution = True
         spatial.remove(life)
         return
     
