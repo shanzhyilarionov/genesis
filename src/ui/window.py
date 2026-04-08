@@ -1,8 +1,8 @@
-import math
 import subprocess
 import sys
 import time
 import pygame
+import config
 
 
 class GenesisWindow:
@@ -10,24 +10,19 @@ class GenesisWindow:
         pygame.init()
         pygame.display.set_caption("Genesis")
         self.screen = pygame.display.set_mode((size, size), pygame.RESIZABLE)
-
         self.world_surface = None
         self.world_width = 0
         self.world_height = 0
-
         self.species_a = (0, 255, 0)
         self.species_b = (255, 0, 0)
-
         self.is_dark_mode = self._detect_dark_mode()
         self._apply_theme(self.is_dark_mode)
-
         self.last_theme_check = 0.0
         self.theme_check_interval = 1.0
 
     def _detect_dark_mode(self) -> bool:
         if sys.platform != "darwin":
             return False
-
         try:
             result = subprocess.run(
                 ["defaults", "read", "-g", "AppleInterfaceStyle"],
@@ -51,10 +46,8 @@ class GenesisWindow:
         now = time.time()
         if now - self.last_theme_check < self.theme_check_interval:
             return
-
         self.last_theme_check = now
         dark_mode = self._detect_dark_mode()
-
         if dark_mode != self.is_dark_mode:
             self.is_dark_mode = dark_mode
             self._apply_theme(dark_mode)
@@ -74,39 +67,49 @@ class GenesisWindow:
                 self.screen = pygame.display.set_mode((side, side), pygame.RESIZABLE)
         return True
 
-    def render(self, frame: dict) -> None:
+    def render(self, life_list, food_grid) -> None:
         self._refresh_theme()
 
-        width = frame["width"]
-        height = frame["height"]
-        cells = frame["cells"]
+        height = len(food_grid)
+        width = len(food_grid[0]) if height > 0 else 0
+
+        if width == 0 or height == 0:
+            self.screen.fill(self.background)
+            pygame.display.flip()
+            return
 
         self._ensure_world_surface(width, height)
         self.world_surface.fill(self.background)
 
         for y in range(height):
-            row = cells[y]
+            row = food_grid[y]
             for x in range(width):
-                value = row[x]
-                if value == 1:
+                if row[x] > 0:
                     self.world_surface.set_at((x, y), self.food)
-                elif value == 2:
+
+        for organism in life_list:
+            if organism.is_dead():
+                continue
+
+            x = organism.x
+            y = organism.y
+
+            if 0 <= x < width and 0 <= y < height:
+                if organism.species_id == config.SPECIES_A:
                     self.world_surface.set_at((x, y), self.species_a)
-                elif value == 3:
+                elif organism.species_id == config.SPECIES_B:
                     self.world_surface.set_at((x, y), self.species_b)
 
         window_width, window_height = self.screen.get_size()
-        scale = max(1, math.ceil(max(window_width / width, window_height / height)))
+        side = min(window_width, window_height)
 
-        draw_width = width * scale
-        draw_height = height * scale
-        offset_x = (window_width - draw_width) // 2
-        offset_y = (window_height - draw_height) // 2
+        if window_width != side or window_height != side:
+            self.screen = pygame.display.set_mode((side, side), pygame.RESIZABLE)
 
-        scaled = pygame.transform.scale(self.world_surface, (draw_width, draw_height))
+        scaled = pygame.transform.scale(self.world_surface, (side, side))
 
         self.screen.fill(self.background)
-        self.screen.blit(scaled, (offset_x, offset_y))
+        self.screen.blit(scaled, (0, 0))
         pygame.display.flip()
 
     def close(self) -> None:
