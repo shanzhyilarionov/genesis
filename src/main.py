@@ -2,38 +2,40 @@ import sys
 sys.dont_write_bytecode = True
 
 import time
-
 import config
 from core.simulator import GenesisSimulator
-from ui.state import build_web_frame, write_web_state
-from ui.runtime import ensure_web_assets, start_web_server, open_browser
+from ui.state import build_frame
+from ui.window import GenesisWindow
 
 
 def main() -> None:
     sim = GenesisSimulator()
     sim.reset()
 
-    ensure_web_assets()
+    window = GenesisWindow()
 
-    initial_frame = build_web_frame(sim.life_list, sim.food_grid, 0)
-    write_web_state(initial_frame)
+    initial_frame = build_frame(sim.life_list, sim.food_grid)
+    window.render(initial_frame)
 
-    start_web_server()
-    open_browser()
+    try:
+        while sim.running and sim.tick < config.MAX_TICK_COUNT:
+            if not window.process_events():
+                break
 
-    while sim.running and sim.tick < config.MAX_TICK_COUNT:
-        sim.step()
+            sim.step()
 
-        frame = build_web_frame(sim.life_list, sim.food_grid, sim.tick)
-        write_web_state(frame)
+            frame = build_frame(sim.life_list, sim.food_grid)
+            window.render(frame)
 
-        if sim.is_extinct():
-            print("All organisms died, simulation terminated.")
-            break
+            if sim.is_extinct():
+                print("All organisms died, simulation terminated.")
+                break
 
-        time.sleep(config.TICK_DELAY_SECONDS)
-    else:
-        print(f"Reached maximum tick count {config.MAX_TICK_COUNT}, simulation terminated.")
+            time.sleep(config.TICK_DELAY_SECONDS)
+        else:
+            print(f"Reached maximum tick count {config.MAX_TICK_COUNT}, simulation terminated.")
+    finally:
+        window.close()
 
 
 if __name__ == "__main__":
