@@ -5,7 +5,7 @@ import config
 def create_initial_food_grid():
     return [
         [
-            random.randint(1, 4) if random.random() < 0.4 else 0
+            random.randint(1, 4) if random.random() < 0.5 else 0
             for _ in range(config.WORLD_WIDTH)
         ]
         for _ in range(config.WORLD_HEIGHT)

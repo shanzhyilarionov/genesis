@@ -11,6 +11,7 @@ class Life:
         mobility: float,
         generation: int,
         species_id: int,
+        genome: list[int] | None = None,
     ) -> None:
         self.x = x
         self.y = y
@@ -21,11 +22,10 @@ class Life:
         self.mobility_probability = mobility
         self.generation_index = generation
         self.species_id = species_id
-        self.genome: list[int] = init_random_genome()
+        self.genome: list[int] = genome if genome is not None else init_random_genome()
         self.ip: int = 0
         self.registers: list[float] = [0.0, 0.0, 0.0, 0.0]
         self.memory: list[float] = [0.0] * 16
-
         self.heading_dx: int = 0
         self.heading_dy: int = 0
         self.last_search_score: float = 0.0

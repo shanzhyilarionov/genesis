@@ -8,8 +8,8 @@ from core.world import (
     create_trace_grid,
     decay_trace_grid,
 )
-import genetics.gene_vm as gene_vm
-from genetics.gene_vm import (
+import genetics.vm as vm
+from genetics.vm import (
     MOVE_RANDOM,
     EAT_PLANT,
     MOVE_TOWARDS_PREY,
@@ -80,8 +80,8 @@ class GenesisSimulator:
                 ),
                 generation=0,
                 species_id=config.SPECIES_A,
+                genome=self.make_initial_genome_A(),
             )
-            organism.genome = self.make_initial_genome_A()
             self.life_list.append(organism)
 
         params_B = config.SPECIES_PARAMETERS[config.SPECIES_B]
@@ -106,11 +106,11 @@ class GenesisSimulator:
                 ),
                 generation=0,
                 species_id=config.SPECIES_B,
+                genome=self.make_initial_genome_B(),
             )
-            organism.genome = self.make_initial_genome_B()
             self.life_list.append(organism)
 
-    def _apply_predation(self, spatial: gene_vm.SpatialIndex) -> None:
+    def _apply_predation(self, spatial: vm.SpatialIndex) -> None:
         for occupants in spatial.by_cell.values():
             predators = [
                 o for o in occupants
@@ -157,10 +157,10 @@ class GenesisSimulator:
         decay_trace_grid(self.trace_grid)
 
         new_offspring = []
-        spatial = gene_vm.SpatialIndex(self.life_list)
+        spatial = vm.SpatialIndex(self.life_list)
 
         for organism in self.life_list:
-            gene_vm.execute(
+            vm.execute(
                 organism,
                 self.food_grid,
                 spatial,
