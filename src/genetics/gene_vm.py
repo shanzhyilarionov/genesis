@@ -178,22 +178,26 @@ def _bounded_step(x: int, y: int, dx: int, dy: int) -> tuple[int, int]:
 def _local_prey_score(spatial: SpatialIndex, x: int, y: int) -> float:
     vision_range = config.PREDATOR_SEARCH_RADIUS
 
-    x0 = max(0, x - vision_range)
-    x1 = min(config.WORLD_WIDTH - 1, x + vision_range)
-    y0 = max(0, y - vision_range)
-    y1 = min(config.WORLD_HEIGHT - 1, y + vision_range)
+    bx0 = max(0, (x - vision_range) // spatial.bucket_size)
+    bx1 = (x + vision_range) // spatial.bucket_size
+    by0 = max(0, (y - vision_range) // spatial.bucket_size)
+    by1 = (y + vision_range) // spatial.bucket_size
 
     best_score = 0.0
 
-    for ny in range(y0, y1 + 1):
-        for nx in range(x0, x1 + 1):
-            for organism in spatial.by_cell.get((nx, ny), []):
-                if organism.is_dead():
-                    continue
-                if organism.species_id != config.SPECIES_A:
+    for by in range(by0, by1 + 1):
+        for bx in range(bx0, bx1 + 1):
+            for prey in spatial.prey_buckets.get((bx, by), []):
+                if prey.is_dead():
                     continue
 
-                dist = abs(organism.x - x) + abs(organism.y - y)
+                dx = abs(prey.x - x)
+                dy = abs(prey.y - y)
+
+                if dx > vision_range or dy > vision_range:
+                    continue
+
+                dist = dx + dy
 
                 if dist == 0:
                     return 100.0
@@ -291,6 +295,18 @@ def _sense_prey(life: Life, spatial: SpatialIndex) -> int:
 def _sense_prey_direction(life: Life, spatial: SpatialIndex, trace_grid) -> tuple[float, float]:
     if life.species_id != config.SPECIES_B:
         return 0.0, 0.0
+    
+    vision_range = config.PREDATOR_SEARCH_RADIUS
+
+    if not spatial.prey_exists_in_range(life.x, life.y, vision_range):
+        dx = life.heading_dx
+        dy = life.heading_dy
+
+        if dx == 0 and dy == 0:
+            dx, dy = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
+
+        life.current_search_score = trace_grid[life.y][life.x] * config.PREDATOR_TRACE_BONUS
+        return float(dx), float(dy)
 
     best_score = -1e18
     best_dirs = []

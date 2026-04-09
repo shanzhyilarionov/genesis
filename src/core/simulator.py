@@ -110,13 +110,8 @@ class GenesisSimulator:
             organism.genome = self.make_initial_genome_B()
             self.life_list.append(organism)
 
-    def _apply_predation(self) -> None:
-        cell_map = {}
-        for organism in self.life_list:
-            key = (organism.x, organism.y)
-            cell_map.setdefault(key, []).append(organism)
-
-        for occupants in cell_map.values():
+    def _apply_predation(self, spatial: gene_vm.SpatialIndex) -> None:
+        for occupants in spatial.by_cell.values():
             predators = [
                 o for o in occupants
                 if o.species_id == config.SPECIES_B and not o.is_dead()
@@ -135,6 +130,7 @@ class GenesisSimulator:
                 victim = prey[i]
                 victim.energy = 0.0
                 predator.energy += config.PREDATION_ENERGY_GAIN_B
+                spatial.remove(victim)
 
     def reset(self) -> None:
         self.food_grid = create_initial_food_grid()
@@ -173,7 +169,7 @@ class GenesisSimulator:
             )
 
         self.life_list.extend(new_offspring)
-        self._apply_predation()
+        self._apply_predation(spatial)
         self.life_list = [organism for organism in self.life_list if not organism.is_dead()]
         regenerate_food(self.food_grid)
 
