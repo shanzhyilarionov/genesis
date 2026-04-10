@@ -5,6 +5,7 @@ import time
 import config
 from core.simulator import GenesisSimulator
 from ui.window import GenesisWindow
+from ui.terminal import TerminalStatsPanel
 
 def main() -> None:
     sim = GenesisSimulator()
@@ -12,6 +13,7 @@ def main() -> None:
 
     window = GenesisWindow()
     window.render(sim.life_list, sim.food_grid)
+    panel = TerminalStatsPanel()
 
     try:
         while sim.running and sim.tick < config.MAX_TICK_COUNT:
@@ -19,6 +21,10 @@ def main() -> None:
                 break
 
             sim.step()
+
+            if sim.stats.history:
+                panel.render(sim.stats.history[-1])
+
             window.render(sim.life_list, sim.food_grid)
 
             if sim.is_extinct():

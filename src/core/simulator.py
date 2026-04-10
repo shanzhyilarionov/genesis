@@ -18,6 +18,7 @@ from genetics.vm import (
     SENSE_PREY_DIRECTION,
     JUMP,
 )
+from core.stats import StatsCollector
 
 
 class GenesisSimulator:
@@ -27,6 +28,7 @@ class GenesisSimulator:
         self.life_list = []
         self.tick = 0
         self.running = False
+        self.stats = StatsCollector()
 
     def make_initial_genome_A(self, length: int = 32) -> list[int]:
         base = [
@@ -140,6 +142,7 @@ class GenesisSimulator:
         self.running = True
         config.global_pollution_level = 0.0
         self._spawn_initial_population()
+        self.stats.reset()
 
     def step(self) -> None:
         if not self.running:
@@ -147,6 +150,7 @@ class GenesisSimulator:
 
         self.tick += 1
 
+        before_count = len(self.life_list)
         living_count = len(self.life_list)
         pollution_increment = config.POLLUTION_INCREMENT_PER_LIFE * living_count
         config.global_pollution_level = min(
@@ -169,9 +173,13 @@ class GenesisSimulator:
             )
 
         self.life_list.extend(new_offspring)
+        births = len(new_offspring)
         self._apply_predation(spatial)
         self.life_list = [organism for organism in self.life_list if not organism.is_dead()]
+        after_count = len(self.life_list)
+        deaths = before_count + births - after_count
         regenerate_food(self.food_grid)
+        self.stats.capture(self, births, deaths)
 
         if not self.life_list:
             self.running = False
