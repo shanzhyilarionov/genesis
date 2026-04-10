@@ -1,8 +1,9 @@
 # Genesis
-Genesis is a microbial ecosystem simulator in which organisms evolve distinct ecological behaviors under genome control within a two-dimensional space shaped by environmental variables.
+Genesis is an interpretable multi-agent ecological simulation platform where genome-driven organisms evolve and interact in a dynamic two-dimensional environment.
 
 ## Requirements
 - Python 3.10 or higher
+- pygame
 
 ## Usage
 1. Clone or download the repository.
