@@ -11,10 +11,27 @@ class StatsSnapshot:
     pollution: float
     births: int
     deaths: int
+    birth_a: int
+    birth_b: int
+    death_a: int
+    death_b: int
     avg_age_a: float
     avg_age_b: float
     avg_energy_a: float
     avg_energy_b: float
+    avg_metabolism_a: float
+    avg_metabolism_b: float
+    intrinsic_death_a: int
+    intrinsic_death_b: int
+    starvation_death_a: int
+    starvation_death_b: int
+    predation_death_a: int
+    pollution_death_a: int
+    pollution_death_b: int
+    mutations_a: int
+    mutations_b: int
+    dominant_opcode_a: int | None
+    dominant_opcode_b: int | None
 
 
 class StatsCollector:
@@ -24,32 +41,28 @@ class StatsCollector:
     def reset(self) -> None:
         self.history.clear()
 
-    def capture(self, simulator, births: int, deaths: int) -> None:
+    def _mean(self, values) -> float:
+        return sum(values) / len(values) if values else 0.0
+
+    def _dominant_opcode(self, counts: dict[int, int]) -> int | None:
+        if not counts:
+            return None
+        return max(counts.items(), key=lambda item: (item[1], -item[0]))[0]
+
+    def capture(self, simulator) -> None:
         life_list = simulator.life_list
         food_grid = simulator.food_grid
+        tick_stats = getattr(simulator, "tick_stats", {})
 
         a_list = [o for o in life_list if o.species_id == config.SPECIES_A]
         b_list = [o for o in life_list if o.species_id == config.SPECIES_B]
 
         food_total = sum(sum(row) for row in food_grid)
 
-        avg_age_a = (
-            sum(o.age_ticks for o in a_list) / len(a_list)
-            if a_list else 0.0
-        )
-        avg_age_b = (
-            sum(o.age_ticks for o in b_list) / len(b_list)
-            if b_list else 0.0
-        )
-
-        avg_energy_a = (
-            sum(o.energy for o in a_list) / len(a_list)
-            if a_list else 0.0
-        )
-        avg_energy_b = (
-            sum(o.energy for o in b_list) / len(b_list)
-            if b_list else 0.0
-        )
+        birth_a = tick_stats.get("birth_a", 0)
+        birth_b = tick_stats.get("birth_b", 0)
+        death_a = tick_stats.get("death_a", 0)
+        death_b = tick_stats.get("death_b", 0)
 
         snapshot = StatsSnapshot(
             tick=simulator.tick,
@@ -58,12 +71,32 @@ class StatsCollector:
             population_b=len(b_list),
             food_total=food_total,
             pollution=config.global_pollution_level,
-            births=births,
-            deaths=deaths,
-            avg_age_a=avg_age_a,
-            avg_age_b=avg_age_b,
-            avg_energy_a=avg_energy_a,
-            avg_energy_b=avg_energy_b,
+            births=birth_a + birth_b,
+            deaths=death_a + death_b,
+            birth_a=birth_a,
+            birth_b=birth_b,
+            death_a=death_a,
+            death_b=death_b,
+            avg_age_a=self._mean([o.age_ticks for o in a_list]),
+            avg_age_b=self._mean([o.age_ticks for o in b_list]),
+            avg_energy_a=self._mean([o.energy for o in a_list]),
+            avg_energy_b=self._mean([o.energy for o in b_list]),
+            avg_metabolism_a=self._mean([o.metabolism_rate for o in a_list]),
+            avg_metabolism_b=self._mean([o.metabolism_rate for o in b_list]),
+            intrinsic_death_a=tick_stats.get("intrinsic_death_a", 0),
+            intrinsic_death_b=tick_stats.get("intrinsic_death_b", 0),
+            starvation_death_a=tick_stats.get("starvation_death_a", 0),
+            starvation_death_b=tick_stats.get("starvation_death_b", 0),
+            predation_death_a=tick_stats.get("predation_death_a", 0),
+            pollution_death_a=tick_stats.get("pollution_death_a", 0),
+            pollution_death_b=tick_stats.get("pollution_death_b", 0),
+            mutations_a=tick_stats.get("mutations_a", 0),
+            mutations_b=tick_stats.get("mutations_b", 0),
+            dominant_opcode_a=self._dominant_opcode(
+                tick_stats.get("opcode_counts_a", {})
+            ),
+            dominant_opcode_b=self._dominant_opcode(
+                tick_stats.get("opcode_counts_b", {})
+            ),
         )
-
         self.history.append(snapshot)

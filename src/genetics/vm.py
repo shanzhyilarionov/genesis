@@ -37,28 +37,49 @@ from genetics.behaviors import (
 )
 
 
-def execute(life: Life, food_grid, spatial, trace_grid, offspring_list, max_steps: int = 5) -> None:
+def execute(
+    life: Life,
+    food_grid,
+    spatial,
+    trace_grid,
+    offspring_list,
+    tick_stats,
+    max_steps: int = 5,
+) -> None:
     if life.is_dead():
         return
 
     life.age_ticks += 1
+    if life.age_ticks > life.lifespan_ticks:
+        life.death_cause = "intrinsic"
+        spatial.remove(life)
+        return
+
     life.energy -= life.metabolism_rate
-    if life.is_dead():
+    if life.energy <= 0.0:
+        life.death_cause = "starvation"
         spatial.remove(life)
         return
 
     if random.random() < 0.002 * config.global_pollution_level:
         life.energy = 0.0
+        life.death_cause = "pollution"
         spatial.remove(life)
         return
 
     genome = life.genome
     n = len(genome)
-
     steps = 0
+
     while steps < max_steps and not life.is_dead():
         ip = life.ip % n
         opcode = genome[ip]
+
+        if life.species_id == config.SPECIES_A:
+            opcode_counts = tick_stats["opcode_counts_a"]
+        else:
+            opcode_counts = tick_stats["opcode_counts_b"]
+        opcode_counts[opcode] = opcode_counts.get(opcode, 0) + 1
 
         if opcode == NOP:
             life.ip = (ip + 1) % n

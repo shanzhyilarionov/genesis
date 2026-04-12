@@ -41,4 +41,4 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("Simulation interrupted by user.")
+        print("\nSimulation interrupted by user.")

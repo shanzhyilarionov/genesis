@@ -1,9 +1,40 @@
 import sys
 
-LABEL_WIDTH = 15
+CELL_WIDTH = 24
+GAP = "  "
 
-def _row(label: str, value: str) -> str:
-    return f"{label:<{LABEL_WIDTH}}{value}"
+
+def _value_text(value) -> str:
+    if value is None:
+        return "N/A"
+    return str(value)
+
+
+def _float_text(value, digits: int = 2) -> str:
+    if value is None:
+        return "N/A"
+    return f"{value:.{digits}f}"
+
+
+def _percent_text(part: int | None, total: int | None) -> str:
+    if part is None or total is None or total == 0:
+        return "N/A"
+    return f"{round(part * 100 / total)}%"
+
+
+def _cell(label: str, value: str, width: int = CELL_WIDTH) -> str:
+    name = f"{label}: "
+    return name + value.rjust(width - len(name))
+
+
+def _pair(
+    left_label: str,
+    left_value: str,
+    right_label: str,
+    right_value: str,
+) -> str:
+    return _cell(left_label, left_value) + GAP + _cell(right_label, right_value)
+
 
 class TerminalStatsPanel:
     def __init__(self) -> None:
@@ -28,20 +59,98 @@ class TerminalStatsPanel:
         if not self._active:
             self.enter()
 
-        sys.stdout.write("\x1b[H\x1b[J")
+        death_a = getattr(snapshot, "death_a", None)
+        death_b = getattr(snapshot, "death_b", None)
+
+        intrinsic_death_a = getattr(snapshot, "intrinsic_death_a", None)
+        intrinsic_death_b = getattr(snapshot, "intrinsic_death_b", None)
+
+        starvation_death_a = getattr(snapshot, "starvation_death_a", None)
+        starvation_death_b = getattr(snapshot, "starvation_death_b", None)
+
+        predation_death_a = getattr(snapshot, "predation_death_a", None)
+        pollution_death_a = getattr(snapshot, "pollution_death_a", None)
+        pollution_death_b = getattr(snapshot, "pollution_death_b", None)
 
         lines = [
-            _row("Tick:", str(snapshot.tick)),
-            _row("Food:", str(snapshot.food_total)),
-            _row("Pollution:", f"{snapshot.pollution:.3f}"),
-            _row("Population A:", str(snapshot.population_a)),
-            _row("Population B:", str(snapshot.population_b)),
-            _row("Mean Age A:", f"{snapshot.avg_age_a:.2f}"),
-            _row("Mean Age B:", f"{snapshot.avg_age_b:.2f}"),
-            _row("Mean Energy A:", f"{snapshot.avg_energy_a:.2f}"),
-            _row("Mean Energy B:", f"{snapshot.avg_energy_b:.2f}"),
+            _cell("Tick", _value_text(getattr(snapshot, "tick", None))),
+            _cell("Food", _value_text(getattr(snapshot, "food_total", None))),
+            _cell("Pollution", _float_text(getattr(snapshot, "pollution", None), 4)),
+            "",
+            _pair(
+                "Population A",
+                _value_text(getattr(snapshot, "population_a", None)),
+                "Population B",
+                _value_text(getattr(snapshot, "population_b", None)),
+            ),
+            _pair(
+                "Birth A",
+                _value_text(getattr(snapshot, "birth_a", None)),
+                "Birth B",
+                _value_text(getattr(snapshot, "birth_b", None)),
+            ),
+            _pair(
+                "Death A",
+                _value_text(death_a),
+                "Death B",
+                _value_text(death_b),
+            ),
+            _pair(
+                "Mean Age A",
+                _float_text(getattr(snapshot, "avg_age_a", None), 2),
+                "Mean Age B",
+                _float_text(getattr(snapshot, "avg_age_b", None), 2),
+            ),
+            _pair(
+                "Mean Energy A",
+                _float_text(getattr(snapshot, "avg_energy_a", None), 2),
+                "Mean Energy B",
+                _float_text(getattr(snapshot, "avg_energy_b", None), 2),
+            ),
+            _pair(
+                "Mean Metabolism A",
+                _float_text(getattr(snapshot, "avg_metabolism_a", None), 2),
+                "Mean Metabolism B",
+                _float_text(getattr(snapshot, "avg_metabolism_b", None), 2),
+            ),
+            _pair(
+                "Intrinsic Death A",
+                _percent_text(intrinsic_death_a, death_a),
+                "Intrinsic Death B",
+                _percent_text(intrinsic_death_b, death_b),
+            ),
+            _pair(
+                "Starvation Death A",
+                _percent_text(starvation_death_a, death_a),
+                "Starvation Death B",
+                _percent_text(starvation_death_b, death_b),
+            ),
+            _pair(
+                "Predation Death A",
+                _percent_text(predation_death_a, death_a),
+                "Pollution Death B",
+                _percent_text(pollution_death_b, death_b),
+            ),
+            _pair(
+                "Pollution Death A",
+                _percent_text(pollution_death_a, death_a),
+                "Mutations B",
+                _value_text(getattr(snapshot, "mutations_b", None)),
+            ),
+            _pair(
+                "Mutations A",
+                _value_text(getattr(snapshot, "mutations_a", None)),
+                "Dominant Opcode B",
+                _value_text(getattr(snapshot, "dominant_opcode_b", None)),
+            ),
+            _cell(
+                "Dominant Opcode A",
+                _value_text(getattr(snapshot, "dominant_opcode_a", None)),
+            ),
             "",
         ]
 
-        sys.stdout.write("\n".join(lines))
+        output = "\n".join(lines)
+        sys.stdout.write("\x1b[H\x1b[J")
+        sys.stdout.write(output)
         sys.stdout.flush()

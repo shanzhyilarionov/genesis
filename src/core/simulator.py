@@ -29,6 +29,26 @@ class GenesisSimulator:
         self.tick = 0
         self.running = False
         self.stats = StatsCollector()
+        self.tick_stats = self._make_empty_tick_stats()
+
+    def _make_empty_tick_stats(self) -> dict:
+        return {
+            "birth_a": 0,
+            "birth_b": 0,
+            "death_a": 0,
+            "death_b": 0,
+            "intrinsic_death_a": 0,
+            "intrinsic_death_b": 0,
+            "starvation_death_a": 0,
+            "starvation_death_b": 0,
+            "predation_death_a": 0,
+            "pollution_death_a": 0,
+            "pollution_death_b": 0,
+            "mutations_a": 0,
+            "mutations_b": 0,
+            "opcode_counts_a": {},
+            "opcode_counts_b": {},
+        }
 
     def make_initial_genome_A(self, length: int = 32) -> list[int]:
         base = [
@@ -130,6 +150,7 @@ class GenesisSimulator:
             for i in range(interactions):
                 predator = predators[i]
                 victim = prey[i]
+                victim.death_cause = "predation"
                 victim.energy = 0.0
                 predator.energy += config.PREDATION_ENERGY_GAIN_B
                 spatial.remove(victim)
@@ -141,6 +162,7 @@ class GenesisSimulator:
         self.tick = 0
         self.running = True
         config.global_pollution_level = 0.0
+        self.tick_stats = self._make_empty_tick_stats()
         self._spawn_initial_population()
         self.stats.reset()
 
@@ -149,13 +171,18 @@ class GenesisSimulator:
             return
 
         self.tick += 1
+        self.tick_stats = self._make_empty_tick_stats()
 
-        before_count = len(self.life_list)
         living_count = len(self.life_list)
         pollution_increment = config.POLLUTION_INCREMENT_PER_LIFE * living_count
-        config.global_pollution_level = min(
-            config.global_pollution_level + pollution_increment,
-            config.POLLUTION_CAP,
+        pollution_recovery = config.POLLUTION_RECOVERY_PER_TICK
+
+        config.global_pollution_level = max(
+            0.0,
+            min(
+                config.global_pollution_level + pollution_increment - pollution_recovery,
+                config.POLLUTION_CAP,
+            ),
         )
 
         decay_trace_grid(self.trace_grid)
@@ -164,22 +191,67 @@ class GenesisSimulator:
         spatial = vm.SpatialIndex(self.life_list)
 
         for organism in self.life_list:
+            organism.death_cause = None
             vm.execute(
                 organism,
                 self.food_grid,
                 spatial,
                 self.trace_grid,
                 new_offspring,
+                self.tick_stats,
             )
 
+        for child in new_offspring:
+            if child.species_id == config.SPECIES_A:
+                self.tick_stats["birth_a"] += 1
+                if getattr(child, "was_mutated", False):
+                    self.tick_stats["mutations_a"] += 1
+            else:
+                self.tick_stats["birth_b"] += 1
+                if getattr(child, "was_mutated", False):
+                    self.tick_stats["mutations_b"] += 1
+        
         self.life_list.extend(new_offspring)
-        births = len(new_offspring)
         self._apply_predation(spatial)
-        self.life_list = [organism for organism in self.life_list if not organism.is_dead()]
-        after_count = len(self.life_list)
-        deaths = before_count + births - after_count
+
+        alive = []
+        for organism in self.life_list:
+            if not organism.is_dead():
+                alive.append(organism)
+                continue
+
+            if organism.species_id == config.SPECIES_A:
+                self.tick_stats["death_a"] += 1
+            else:
+                self.tick_stats["death_b"] += 1
+
+            cause = getattr(organism, "death_cause", None)
+            if cause is None:
+                if organism.age_ticks > organism.lifespan_ticks:
+                    cause = "intrinsic"
+                else:
+                    cause = "starvation"
+
+            if organism.species_id == config.SPECIES_A:
+                if cause == "intrinsic":
+                    self.tick_stats["intrinsic_death_a"] += 1
+                elif cause == "starvation":
+                    self.tick_stats["starvation_death_a"] += 1
+                elif cause == "predation":
+                    self.tick_stats["predation_death_a"] += 1
+                elif cause == "pollution":
+                    self.tick_stats["pollution_death_a"] += 1
+            else:
+                if cause == "intrinsic":
+                    self.tick_stats["intrinsic_death_b"] += 1
+                elif cause == "starvation":
+                    self.tick_stats["starvation_death_b"] += 1
+                elif cause == "pollution":
+                    self.tick_stats["pollution_death_b"] += 1
+
+        self.life_list = alive
         regenerate_food(self.food_grid)
-        self.stats.capture(self, births, deaths)
+        self.stats.capture(self)
 
         if not self.life_list:
             self.running = False

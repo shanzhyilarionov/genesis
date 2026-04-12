@@ -234,21 +234,29 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
 
     life.energy -= cost
     if life.energy <= 0.0:
+        life.death_cause = "starvation"
+        spatial.remove(life)
         return
 
     dx, dy = random.choice([
-        (1, 0), (-1, 0),
-        (0, 1), (0, -1),
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
         (0, 0),
     ])
     child_x = max(0, min(config.WORLD_WIDTH - 1, life.x + dx))
     child_y = max(0, min(config.WORLD_HEIGHT - 1, life.y + dy))
     species_id = life.species_id
 
+    mutated = False
+
     if random.random() < config.MUTATION_PROBABILITY:
         delta_lifespan = random.randint(-4, 4)
     else:
         delta_lifespan = 0
+    if delta_lifespan != 0:
+        mutated = True
 
     min_life = params["lifespan_min"]
     max_life = params["lifespan_max"]
@@ -261,6 +269,8 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         delta_metabolism = random.uniform(-0.1, 0.1)
     else:
         delta_metabolism = 0.0
+    if delta_metabolism != 0.0:
+        mutated = True
 
     min_meta = params["metabolism_min"]
     max_meta = params["metabolism_max"]
@@ -273,6 +283,8 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         delta_mobility = random.uniform(-0.05, 0.05)
     else:
         delta_mobility = 0.0
+    if delta_mobility != 0.0:
+        mutated = True
 
     min_move = params["mobility_min"]
     max_move = params["mobility_max"]
@@ -297,9 +309,16 @@ def _try_reproduce(life: Life, offspring_list: list[Life], spatial: SpatialIndex
         child_generation,
         species_id=species_id,
     )
-    child.genome = mutate_genome(life.genome)
+
+    child_genome = mutate_genome(life.genome)
+    if child_genome != life.genome:
+        mutated = True
+
+    child.genome = child_genome
     child.ip = 0
     child.registers = [0.0, 0.0, 0.0, 0.0]
     child.memory = [0.0] * len(life.memory)
+    child.was_mutated = mutated
+
     offspring_list.append(child)
     spatial.add(child)
