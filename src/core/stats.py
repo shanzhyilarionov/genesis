@@ -1,4 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+import csv
+import json
+from pathlib import Path
 import config
 
 @dataclass
@@ -100,3 +103,33 @@ class StatsCollector:
             ),
         )
         self.history.append(snapshot)
+
+    def export_history_csv(self, path: str) -> None:
+        if not self.history:
+            return
+
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        rows = [asdict(snapshot) for snapshot in self.history]
+        fieldnames = list(rows[0].keys())
+
+        with output_path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+    def export_summary_json(self, path: str, metadata: dict | None = None) -> None:
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        final_snapshot = asdict(self.history[-1]) if self.history else None
+
+        payload = {
+            "metadata": metadata or {},
+            "final_snapshot": final_snapshot,
+            "num_snapshots": len(self.history),
+        }
+
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
